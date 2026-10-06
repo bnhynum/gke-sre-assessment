@@ -1,0 +1,45 @@
+# Terraform state and cache
+**/.terraform/*
+*.tfstate
+*.tfstat***
+*.tfplan
+crash.log
+crash.*.log
+** Terraform variable files that ma**contain secrets
+*.tfvars
+*.tfvars***on
+*.auto.tfvars
+*.auto.tfvars.j***
+
+# Google credentials
+applicati***default_credentials.json
+*servic***ccount*.json
+*credentials*.json
+**afana-secrets/
+.grafana-secrets/
+** Grafana secrets/configuration
+custom.ini
+grafana.ini
+
+# Kubernetes credentials
+kubeconfig
+.kube/
+
+# Environment / secrets
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Editor / OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.bak
+*.orig
