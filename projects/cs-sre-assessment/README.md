@@ -101,15 +101,6 @@ The complete IAM model, persona boundaries, human-versus-machine identity strate
 
 `docs/iam-design.md`
 
-## Network Design
-
-| Cluster | Region | Subnet | Node CIDR | Pod CIDR | Service CIDR |
-|---|---|---|---|---|---|
-| Primary | `us-central1` | `gke-primary-subnet` | `10.10.0.0/20` | `10.20.0.0/16` | `10.30.0.0/20` |
-| Secondary | `us-east1` | `gke-secondary-subnet` | `10.40.0.0/20` | `10.50.0.0/16` | `10.60.0.0/20` |
-
-Both clusters use VPC-native alias IP addressing.
-
 ## Applications
 
 ### App A
@@ -139,6 +130,228 @@ Both clusters use VPC-native alias IP addressing.
 - HPA: 2 to 5 replicas at 60% CPU utilization
 
 Primary-cluster endpoint testing successfully returned the NGINX welcome page for App A and the `Hello, world!` response for App B.
+
+# Application Deployment Evidence
+
+## Application Deployment Design Verification
+
+| Requirement | Status | Evidence |
+|------------|---------|----------|
+| Two independent web applications deployed | ✅ PASS | App A (`nginx`) and App B (`hello-app`) deployed separately |
+| Deployed to primary cluster | ✅ PASS | App A and App B deployed in `gke-primary` |
+| Deployed to secondary cluster | ✅ PASS | App A and App B deployed in `gke-secondary` |
+| Stateless application architecture | ✅ PASS | Both workloads use stateless container images |
+| Kubernetes Deployment / ReplicaSet | ✅ PASS | Both applications use Deployments |
+| Multiple Pods per application | ✅ PASS | Both applications deployed with 2 replicas |
+| Horizontal Pod Autoscaling | ✅ PASS | Both applications configured with HPA (2–5 replicas, 60% CPU target) |
+| App A ConfigMap | ✅ PASS | `app-a-config` deployed and referenced by Deployment |
+| App A Secret | ✅ PASS | `app-a-secret` deployed and referenced by Deployment |
+| App B replicated across clusters | ✅ PASS | App B deployed and verified in both regions |
+| Application observability | ✅ PASS | Application logs visible in Cloud Logging, BigQuery, and Grafana |
+| Application endpoint validation | ✅ PASS | Public endpoints tested with browser and curl |
+
+---
+
+## Web Application A
+
+### Architecture
+
+```text
+Application: App A
+Image: nginx:1.27
+Type: Stateless microservice
+Replicas: 2
+HPA: 2-5 replicas
+CPU Target: 60%
+```
+
+### Configuration
+
+#### ConfigMap
+
+```text
+app-a-config
+```
+
+Provides:
+
+```text
+APP_NAME=app-a
+ENVIRONMENT=assessment
+```
+
+#### Secret
+
+```text
+app-a-secret
+```
+
+Provides:
+
+```text
+APP_MODE=production
+```
+
+#### Deployment Integration
+
+```text
+envFrom:
+  - configMapRef:
+      name: app-a-config
+
+  - secretRef:
+      name: app-a-secret
+```
+
+### Validation
+
+```text
+ConfigMap deployed
+Secret deployed
+Deployment rollout successful
+Pods running
+Environment variables visible in container
+HPA active
+```
+
+Status:
+
+✅ COMPLETE
+
+---
+
+## Web Application B
+
+### Architecture
+
+```text
+Application: App B
+Image: gcr.io/google-samples/hello-app:1.0
+Type: Stateless application
+Replicas: 2
+HPA: 2-5 replicas
+CPU Target: 60%
+```
+
+### Cross-Cluster Deployment
+
+```text
+gke-primary
+└── app-b
+
+gke-secondary
+└── app-b
+```
+
+### Validation
+
+```text
+Deployment verified in both clusters
+Logs exported through Cloud Logging
+Logs exported to BigQuery
+Visible in Grafana dashboards
+Public endpoint tested
+```
+
+Status:
+
+✅ COMPLETE
+
+---
+
+## Horizontal Pod Autoscaling
+
+### App A
+
+```text
+Minimum Pods: 2
+Maximum Pods: 5
+Target CPU: 60%
+```
+
+### App B
+
+```text
+Minimum Pods: 2
+Maximum Pods: 5
+Target CPU: 60%
+```
+
+Validation:
+
+```powershell
+kubectl get hpa
+kubectl describe hpa app-a
+kubectl describe hpa app-b
+```
+
+Status:
+
+✅ COMPLETE
+
+---
+
+## Cross-Cluster Resilience
+
+```text
+Primary Region
+  us-central1
+      |
+      +-- App A
+      +-- App B
+
+Secondary Region
+  us-east1
+      |
+      +-- App A
+      +-- App B
+```
+
+Both applications are deployed independently in each cluster, supporting:
+
+- Regional redundancy
+- Environment symmetry
+- Future failover strategies
+- Future multi-cluster traffic management
+
+Status:
+
+✅ COMPLETE
+
+---
+
+## Application Deployment Assessment Summary
+
+| Area | Status |
+|--------|--------|
+| Stateless App A | ✅ |
+| Stateless App B | ✅ |
+| Multiple Pods | ✅ |
+| Kubernetes Deployments | ✅ |
+| ConfigMaps | ✅ |
+| Secrets | ✅ |
+| Horizontal Pod Autoscaling | ✅ |
+| Primary Cluster Deployment | ✅ |
+| Secondary Cluster Deployment | ✅ |
+| Cross-Cluster Replication | ✅ |
+| Public Endpoint Validation | ✅ |
+| Observability Integration | ✅ |
+
+### Overall Application Deployment Status
+
+```text
+Application Deployment Design
+COMPLETE ✅
+```
+
+## Network Design
+
+| Cluster | Region | Subnet | Node CIDR | Pod CIDR | Service CIDR |
+|---|---|---|---|---|---|
+| Primary | `us-central1` | `gke-primary-subnet` | `10.10.0.0/20` | `10.20.0.0/16` | `10.30.0.0/20` |
+| Secondary | `us-east1` | `gke-secondary-subnet` | `10.40.0.0/20` | `10.50.0.0/16` | `10.60.0.0/20` |
+
+Both clusters use VPC-native alias IP addressing.
 
 # Networking Completion Checklist
 
@@ -181,6 +394,27 @@ sre-assessment-vpc
 └── ops-monitoring-subnet
     └── Reserved monitoring and operations network segment
 ```
+
+### Service Mesh and Inter-Service Communication
+
+The assessment architecture identifies Anthos Service Mesh as an optional enhancement.
+
+The implemented environment uses standard Kubernetes Services for application communication and focuses on validating:
+
+- multi-cluster deployment
+- horizontal pod autoscaling
+- centralized logging
+- Cloud Monitoring
+- BigQuery observability
+- Grafana dashboarding
+
+The following service-mesh capabilities were documented as future production enhancements but were not implemented as part of the assessment:
+
+- Anthos Service Mesh
+- Mutual TLS (mTLS)
+- Canary deployments
+- Blue/green traffic shaping
+- Distributed tracing
 
 ## Repository Layout
 

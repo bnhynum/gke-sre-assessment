@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-a-config
+data:
+  APP_NAME: "app-a"
+  ENVIRONMENT: "assessment"
