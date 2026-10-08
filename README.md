@@ -8,3 +8,4 @@ This repository models a Folder → Project structure for the GKE SRE assessment
 gke-sre-assessment
 └── projects
     └── cs-sre-assessment
+```
