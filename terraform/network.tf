@@ -36,3 +36,21 @@ resource "google_compute_subnetwork" "secondary" {
     ip_cidr_range = "10.60.0.0/20"
   }
 }
+
+resource "google_compute_subnetwork" "load_balancer" {
+  name          = "lb-subnet"
+  ip_cidr_range = "10.70.0.0/24"
+  region        = var.primary_region
+  network       = google_compute_network.sre_vpc.id
+
+  description = "Reserved subnet for load balancer infrastructure"
+}
+
+resource "google_compute_subnetwork" "ops_monitoring" {
+  name          = "ops-monitoring-subnet"
+  ip_cidr_range = "10.80.0.0/24"
+  region        = var.primary_region
+  network       = google_compute_network.sre_vpc.id
+
+  description = "Reserved subnet for monitoring and operations infrastructure"
+}

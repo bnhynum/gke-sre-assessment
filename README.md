@@ -26,6 +26,10 @@ This repository contains the implementation and supporting documentation for a G
 - Google OAuth authentication for Grafana
 - BigQuery Forward OAuth Identity integration
 - Four dashboard panels visualizing GKE application and log activity
+- Terraform-ready IAM model for Developer, Operations, SRE, and CI/CD personas
+- Conditional IAM bindings that create no access until real organization-managed principals are supplied
+- Separation of human group access from CI/CD machine identity
+- Keyless/federated authentication preferred for CI/CD automation
 
 ## Architecture
 
@@ -65,6 +69,37 @@ BigQuery: gke_observability
 ```
 
 The assessment implementation keeps public LoadBalancer Services primary-specific. The production architecture described in the assessment can evolve toward a single global HTTPS entry point with multi-cluster traffic management, health-based failover, DNS, and WAF controls.
+
+## IAM Design
+
+The assessment defines a least-privilege IAM model separating human access and deployment automation across four personas:
+
+| Persona | Primary Responsibility |
+|---|---|
+| Developers | Application deployment, application-level troubleshooting, logs, and workload visibility |
+| Operations | GKE platform operations, infrastructure visibility, and runtime support |
+| SRE | Reliability, GKE operations, Cloud Logging, Cloud Monitoring, Managed Prometheus, and observability analysis |
+| CI/CD | Automated infrastructure and application deployment using a dedicated non-human identity |
+
+Human access is designed around organization-managed groups rather than individual IAM assignments. Kubernetes RBAC provides an additional in-cluster authorization boundary, allowing application and operational permissions to be scoped independently of GCP project access.
+
+CI/CD automation is designed to use short-lived or federated workload identity rather than human credentials or long-lived service-account keys. The assessment project enforces a policy preventing service-account key creation, and that security control was preserved during implementation.
+
+The supplied assessment environment does not provide organization-managed Developer, Operations, or SRE groups, so artificial users or groups were not created solely to satisfy the architecture. The implemented project owner access is treated as assessment provisioning access rather than the recommended production authorization model.
+
+A production implementation would use:
+
+- Organization-managed groups for Developers, Operations, and SRE
+- Dedicated non-human identity for CI/CD
+- Least-privilege predefined or custom IAM roles
+- Namespace-scoped Kubernetes RBAC where appropriate
+- Workload Identity Federation for external CI/CD systems such as GitHub Actions
+- Separate infrastructure and application deployment identities where stronger separation of duties is required
+- Periodic IAM access review and audit-log monitoring
+
+The complete IAM model, persona boundaries, human-versus-machine identity strategy, BigQuery access separation, and production recommendations are documented in:
+
+`docs/iam-design.md`
 
 ## Network Design
 
@@ -168,6 +203,23 @@ No changes. Your infrastructure matches the configuration.
 ```
 
 Do not run `terraform apply` against an existing assessment environment unless the plan has been reviewed and the change is intentional.
+
+## IAM Design
+
+The project includes a Terraform-ready least-privilege IAM model for four personas:
+
+| Persona | Responsibility |
+|---|---|
+| Developers | Application visibility, logging, monitoring, and application-level troubleshooting |
+| Operations | GKE and compute visibility, logging, monitoring, and runtime operations |
+| SRE | GKE operations, observability, reliability analysis, logging, monitoring, and BigQuery querying |
+| CI/CD | Automated workload deployment through a dedicated non-human identity |
+
+The IAM implementation is defined in:
+
+```text
+terraform/iam.tf
+```
 
 ## Kubernetes Deployment
 
@@ -333,6 +385,7 @@ These issues are recorded as implementation evidence rather than hidden from the
 - **Primary-only public Services** keep the assessment implementation simple and avoid unnecessary public load balancers in the secondary cluster.
 - **Cloud Logging to BigQuery** provides centralized, queryable application and GKE log data.
 - **Terraform import followed by zero-drift plan** converts the manually validated infrastructure into reproducible IaC without recreating working resources.
+- **IAM is modeled using conditional Terraform bindings** so the repository documents a least-privilege Developer, Operations, SRE, and CI/CD access strategy without creating fake principals. Human access is intended to use organization-managed groups, while automation should use dedicated workload identities and keyless authentication.
 
 ## Production Evolution
 
@@ -349,6 +402,11 @@ The assessment implementation intentionally prioritizes validated core functiona
 - Distributed tracing and profiling
 - Multi-zone node placement and topology spread constraints
 - Production-hosted Grafana or managed observability platform
+- Organization-managed Developer, Operations, and SRE groups
+- Workload Identity Federation for GitHub Actions / CI/CD
+- Separate application and infrastructure deployment identities
+- IAM Conditions and periodic access reviews
+- Privileged-access elevation rather than routine Owner access
 
 ## Evidence Checklist
 
@@ -366,6 +424,9 @@ Recommended submission evidence:
 - [ ] Troubleshooting write-up
 - [ ] Full Grafana dashboard screenshot showing all four panels
 - [ ] Exported `grafana/gke-sre-observability-dashboard.json`
+- [ ] `terraform/iam.tf` showing conditional Dev/Ops/SRE/CI/CD IAM model
+- [ ] `docs/iam-design.md` documenting persona boundaries and least-privilege strategy
+- [ ] Terraform plan showing no unintended IAM changes
 
 ## Safety / Operator Notes
 
