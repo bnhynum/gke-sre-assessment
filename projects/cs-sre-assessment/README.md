@@ -610,17 +610,31 @@ ORDER BY time;
 
 Additional queries should be stored in `queries/observability.sql`.
 
-## Grafana Dashboard
+### Grafana Dashboard
 
 Grafana OSS was installed locally on Windows and connected to the assessment's BigQuery observability dataset.
 
-### Authentication
+#### Authentication
 
 The GCP project enforces:
-
-```text
 constraints/iam.disableServiceAccountKeyCreation
-```
+
+#### Dashboard Notes
+
+Pod restart monitoring was validated using Kubernetes runtime data. All application and system pods reported a restart count of 0 during the assessment period, indicating stable workload operation.
+
+CPU and memory utilization were validated using Google Cloud Monitoring Metrics Explorer rather than Grafana. The assessment environment exposed Kubernetes container metrics through Cloud Monitoring, and screenshots of CPU and memory utilization trends were captured as assessment evidence.
+
+This approach was used because the configured Grafana environment was connected to BigQuery log data and did not have a Cloud Monitoring datasource configured for metric visualization. Cloud Monitoring served as the authoritative source for infrastructure utilization metrics.
+
+Request latency percentile metrics (p50/p95/p99) were investigated through Cloud Monitoring. However, the implemented assessment architecture uses Kubernetes LoadBalancer Services and does not include a Global HTTPS Load Balancer, Multi-Cluster Ingress, application latency instrumentation, or service mesh telemetry. As a result, latency distribution metrics required for percentile reporting were not available in the deployed environment.
+
+Future production implementations could provide latency percentiles through:
+- Global HTTPS Load Balancer metrics
+- Prometheus histogram metrics
+- OpenTelemetry instrumentation
+- Anthos Service Mesh telemetry
+- Cloud Trace
 
 ## Troubleshooting Notes
 
