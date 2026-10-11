@@ -33,42 +33,86 @@ This repository contains the implementation and supporting documentation for a G
 
 ## Architecture
 
-```text
-                         Internet
-                            |
-                  Primary public endpoints
-                            |
-                    gke-primary
-                    us-central1
-                    /         \
-                 App A       App B
-                 2+ pods     2+ pods
-                    \         /
-                     \       /
-                  sre-assessment-vpc
-                     /       \
-                    /         \
-          gke-primary-subnet   gke-secondary-subnet
-               |                     |
-        gke-primary             gke-secondary
-        us-central1               us-east1
-                                   /      \
-                                App A    App B
-                                2+ pods  2+ pods
-
-GKE container logs
-        |
-        v
-Cloud Logging
-        |
-        v
-gke-logs-to-bigquery
-        |
-        v
-BigQuery: gke_observability
+```mermaid
+flowchart TD
+ 
+Internet[Internet Users]
+ 
+GLB["Global External HTTPS Load Balancer<br/>VIP: 136.68.145.210"]
+ 
+MCI["Multi-Cluster Ingress (MCI)"]
+ 
+MCS["Multi-Cluster Services (MCS)"]
+ 
+Primary["gke-primary<br/>us-central1"]
+Secondary["gke-secondary<br/>us-east1"]
+ 
+AppA1["App A<br/>2+ Replicas"]
+AppA2["App A<br/>2+ Replicas"]
+ 
+AppB1["App B<br/>2+ Replicas"]
+AppB2["App B<br/>2+ Replicas"]
+ 
+NEG1["NEG<br/>us-central1-a"]
+NEG2["NEG<br/>us-east1-b"]
+ 
+HC["Health Checks & Automatic Failover"]
+ 
+Logging["Cloud Logging"]
+Sink["Log Router Sink"]
+BQ["BigQuery<br/>gke_observability"]
+Grafana["Grafana"]
+ 
+Internet --> GLB
+GLB --> MCI
+ 
+MCI --> NEG1
+MCI --> NEG2
+ 
+HC --> NEG1
+HC --> NEG2
+ 
+NEG1 --> Primary
+NEG2 --> Secondary
+ 
+Primary --> AppA1
+Primary --> AppB1
+ 
+Secondary --> AppA2
+Secondary --> AppB2
+ 
+Primary <--> MCS
+Secondary <--> MCS
+ 
+AppA1 --> Logging
+AppA2 --> Logging
+AppB1 --> Logging
+AppB2 --> Logging
+ 
+Logging --> Sink
+Sink --> BQ
+BQ --> Grafana
 ```
 
 The assessment implementation keeps public LoadBalancer Services primary-specific. The production architecture described in the assessment can evolve toward a single global HTTPS entry point with multi-cluster traffic management, health-based failover, DNS, and WAF controls.
+
+### Multi-Cluster Traffic Management Evidence
+
+Implemented Components:
+
+- Fleet Memberships: gke-primary, gke-secondary
+- Multi-Cluster Services (MCS): ACTIVE
+- Multi-Cluster Ingress (MCI): ACTIVE
+- Global VIP: 136.68.145.210
+- Health Checks: ENABLED
+- Network Endpoint Groups:
+  - us-central1-a
+  - us-east1-b
+- Service Exports:
+  - app-a-service
+  - app-b-service
+- Service Imports:
+  - app-a-service
 
 ## IAM Design
 
@@ -681,8 +725,6 @@ These issues are recorded as implementation evidence rather than hidden from the
 
 The assessment implementation intentionally prioritizes validated core functionality and reproducibility. A fuller production implementation can add:
 
-- Global external HTTPS load balancing
-- Multi-cluster ingress/services
 - Cloud DNS
 - TLS certificates
 - Cloud Armor WAF policies
@@ -822,10 +864,16 @@ observability, Terraform, and application requirements.
 | LoadBalancer Services | ✅ PASS |
 | Application response validation | ✅ PASS |
 | Public endpoint testing | ✅ PASS |
-| Multi-cluster ingress | ⚪ DOCUMENTED ONLY |
-| Global HTTPS LB | ⚪ DOCUMENTED ONLY |
+| Fleet Memberships | ✅ PASS |
+| Multi-Cluster Services | ✅ PASS |
+| Service Exports | ✅ PASS |
+| Service Imports | ✅ PASS |
+| Multi-cluster ingress | ✅ PASS |
+| Global Load Balancer | ✅ PASS |
+| Health Checks | ✅ PASS |
+| Cross-Region Backends | ✅ PASS |
+| Multi-cluster ingress | ✅ PASS |
 | Cloud DNS | ⚪ DOCUMENTED ONLY |
-| Cloud Armor | ⚪ DOCUMENTED ONLY |
 
 ---
 
@@ -875,7 +923,7 @@ Grafana panels implemented:
 | Cross-Cluster Replication | ✅ PASS |
 | HPA-Based Scaling | ✅ PASS |
 | Active/Passive Capable Architecture | ✅ PASS |
-| Multi-Cluster Ingress Failover | ⚪ DOCUMENTED ONLY |
+| Multi-Cluster Ingress Failover | ✅ PASS |
 
 ---
 

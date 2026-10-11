@@ -1,0 +1,13 @@
+apiVersion: networking.gke.io/v1
+kind: MultiClusterService
+metadata:
+  name: app-a-mcs
+spec:
+  template:
+    spec:
+      selector:
+        app: app-a
+      ports:
+      - port: 80
+        targetPort: 80
+        protocol: TCP

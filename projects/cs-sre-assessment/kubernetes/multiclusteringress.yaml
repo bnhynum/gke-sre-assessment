@@ -1,0 +1,10 @@
+apiVersion: networking.gke.io/v1
+kind: MultiClusterIngress
+metadata:
+  name: app-a-ingress
+spec:
+  template:
+    spec:
+      backend:
+        serviceName: app-a-mcs
+        servicePort: 80

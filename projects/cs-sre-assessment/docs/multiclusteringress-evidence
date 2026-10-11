@@ -1,0 +1,86 @@
+PS> kubectl get multiclusteringress
+NAME            AGE
+app-a-ingress   23m
+
+PS> kubectl describe multiclusteringress app-a-ingress
+Name:         app-a-ingress
+Namespace:    default
+Labels:       <none>
+Annotations:  networking.gke.io/last-reconcile-time: Sunday, 11-Oct-26 17:35:11 UTC
+API Version:  networking.gke.io/v1
+Kind:         MultiClusterIngress
+Metadata:
+  Creation Timestamp:  2026-10-11T17:14:17Z
+  Finalizers:
+    mci.finalizer.networking.gke.io
+  Generation:        2
+  Resource Version:  1791740111968223019
+  UID:               99fa7697-7207-499e-9f75-cf5ef2ed958d
+Spec:
+  Template:
+    Spec:
+      Backend:
+        Service Name:  app-a-mcs
+        Service Port:  80
+Status:
+  Cloud Resources:
+    Backend Services:
+      mci-4hhuct-80-default-app-a-mcs
+    Firewalls:
+      mci-4hhuct-sre-assessment-vpc-l7
+    Forwarding Rules:
+      mci-4hhuct-fw-default-app-a-ingress
+    Health Checks:
+      mci-4hhuct-80-default-app-a-mcs
+    Network Endpoint Groups:
+      zones/us-central1-a/networkEndpointGroups/k8s1-415750f3-default-mci-app-a-mcs-svc-4lyc36ni6klp-8-388c2262
+      zones/us-east1-b/networkEndpointGroups/k8s1-bca046e2-default-mci-app-a-mcs-svc-4lyc36ni6klp-8-bf2d50fa
+    Target Proxies:
+      mci-4hhuct-default-app-a-ingress
+    URL Map:  mci-4hhuct-default-app-a-ingress
+  Vip:        136.68.145.210
+Events:
+  Type    Reason  Age                From                              Message
+  ----    ------  ----               ----                              -------
+  Normal  ADD     23m                multi-cluster-ingress-controller  default/app-a-ingress
+  Normal  UPDATE  20m (x2 over 23m)  multi-cluster-ingress-controller  default/app-a-ingress
+
+PS> kubectl get serviceimports -A
+NAMESPACE   NAME            TYPE           IP               AGE
+default     app-a-service   ClusterSetIP   ["10.30.8.41"]   31m
+default     app-b-service   ClusterSetIP   ["10.30.2.90"]   28m
+
+PS> curl http://136.68.145.210
+StatusCode        : 200
+StatusDescription : OK
+Content           : <!DOCTYPE html>
+                    <html>
+                    <head>
+                    <title>Welcome to nginx!</title>
+                    <style>
+                    html { color-scheme: light dark; }
+                    body { width: 35em; margin: 0 auto;
+                    font-family: Tahoma, Verdana, Arial, sans-serif; }
+                    </style...
+RawContent        : HTTP/1.1 200 OK
+                    Accept-Ranges: bytes
+                    Content-Length: 615
+                    Content-Type: text/html
+                    Date: Sun, 11 Oct 2026 17:38:23 GMT
+                    ETag: "67ff9c07-267"
+                    Last-Modified: Wed, 16 Apr 2025 12:01:11 GMT
+                    Server: ng...
+Forms             : {}
+Headers           : {[Accept-Ranges, bytes], [Content-Length, 615], [Content-Type, text/html], [Date, Sun, 11 Oct 2026
+                    17:38:23 GMT]...}
+Images            : {}
+InputFields       : {}
+Links             : {@{innerHTML=nginx.org; innerText=nginx.org; outerHTML=<A href="http://nginx.org/">nginx.org</A>;
+                    outerText=nginx.org; tagName=A; href=http://nginx.org/}, @{innerHTML=nginx.com;
+                    innerText=nginx.com; outerHTML=<A href="http://nginx.com/">nginx.com</A>; outerText=nginx.com;
+                    tagName=A; href=http://nginx.com/}}
+ParsedHtml        : mshtml.HTMLDocumentClass
+RawContentLength  : 615
+
+PS> gcloud compute backend-services list | findstr mci
+mci-4hhuct-80-default-app-a-mcs      us-central1-a/networkEndpointGroups/k8s1-415750f3-default-mci-app-a-mcs-svc-4lyc36ni6klp-8-388c2262,us-east1-b/networkEndpointGroups/k8s1-bca046e2-default-mci-app-a-mcs-svc-4lyc36ni6klp-8-bf2d50fa  HTTP
