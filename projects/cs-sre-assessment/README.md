@@ -35,60 +35,60 @@ This repository contains the implementation and supporting documentation for a G
 
 ```mermaid
 flowchart TD
- 
+
 Internet[Internet Users]
- 
+
 GLB["Global External HTTPS Load Balancer<br/>VIP: 136.68.145.210"]
- 
+
 MCI["Multi-Cluster Ingress (MCI)"]
- 
+
 MCS["Multi-Cluster Services (MCS)"]
- 
+
 Primary["gke-primary<br/>us-central1"]
 Secondary["gke-secondary<br/>us-east1"]
- 
+
 AppA1["App A<br/>2+ Replicas"]
 AppA2["App A<br/>2+ Replicas"]
- 
+
 AppB1["App B<br/>2+ Replicas"]
 AppB2["App B<br/>2+ Replicas"]
- 
+
 NEG1["NEG<br/>us-central1-a"]
 NEG2["NEG<br/>us-east1-b"]
- 
+
 HC["Health Checks & Automatic Failover"]
- 
+
 Logging["Cloud Logging"]
 Sink["Log Router Sink"]
 BQ["BigQuery<br/>gke_observability"]
 Grafana["Grafana"]
- 
+
 Internet --> GLB
 GLB --> MCI
- 
+
 MCI --> NEG1
 MCI --> NEG2
- 
+
 HC --> NEG1
 HC --> NEG2
- 
+
 NEG1 --> Primary
 NEG2 --> Secondary
- 
+
 Primary --> AppA1
 Primary --> AppB1
- 
+
 Secondary --> AppA2
 Secondary --> AppB2
- 
+
 Primary <--> MCS
 Secondary <--> MCS
- 
+
 AppA1 --> Logging
 AppA2 --> Logging
 AppB1 --> Logging
 AppB2 --> Logging
- 
+
 Logging --> Sink
 Sink --> BQ
 BQ --> Grafana
@@ -104,6 +104,7 @@ Implemented Components:
 - Multi-Cluster Services (MCS): ACTIVE
 - Multi-Cluster Ingress (MCI): ACTIVE
 - Global VIP: 136.68.145.210
+- Health-check-based failover configured through MCI
 - Health Checks: ENABLED
 - Network Endpoint Groups:
   - us-central1-a
@@ -671,7 +672,7 @@ CPU and memory utilization were validated using Google Cloud Monitoring Metrics 
 
 This approach was used because the configured Grafana environment was connected to BigQuery log data and did not have a Cloud Monitoring datasource configured for metric visualization. Cloud Monitoring served as the authoritative source for infrastructure utilization metrics.
 
-Request latency percentile metrics (p50/p95/p99) were investigated through Cloud Monitoring. However, the implemented assessment architecture uses Kubernetes LoadBalancer Services and does not include a Global HTTPS Load Balancer, Multi-Cluster Ingress, application latency instrumentation, or service mesh telemetry. As a result, latency distribution metrics required for percentile reporting were not available in the deployed environment.
+Request latency percentile metrics (p50/p95/p99) were investigated through Cloud Monitoring. The implemented assessment architecture now includes Multi-Cluster Ingress and a Global HTTP(S) Load Balancer. However, application-level latency percentile metrics (p50/p95/p99) were not available because the applications do not expose latency histogram metrics and no OpenTelemetry, Prometheus histogram, or service mesh telemetry was configured.
 
 Future production implementations could provide latency percentiles through:
 - Global HTTPS Load Balancer metrics
@@ -872,7 +873,6 @@ observability, Terraform, and application requirements.
 | Global Load Balancer | ✅ PASS |
 | Health Checks | ✅ PASS |
 | Cross-Region Backends | ✅ PASS |
-| Multi-cluster ingress | ✅ PASS |
 | Cloud DNS | ⚪ DOCUMENTED ONLY |
 
 ---
