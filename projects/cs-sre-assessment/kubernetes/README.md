@@ -1,163 +1,253 @@
 # GKE SRE Assessment Kubernetes Manifests
 
-This directory contains Kubernetes manifests for two stateless web applications deployed to the primary and secondary GKE clusters.
+This directory contains the Kubernetes manifests used to deploy two stateless web applications across the primary and secondary GKE clusters.
+
+The deployment design supports:
+
+- Multi-pod application deployments
+- Horizontal Pod Autoscaling (HPA)
+- Configuration through ConfigMaps and Secrets
+- Cross-region workload replication
+- Regional resilience through deployment to both GKE clusters
+
+As required by the assessment, both applications are deployed to the primary and secondary clusters to support high availability and future failover scenarios. 【1-505b68】【2-fabe6e】
+
+---
 
 ## Files
 
-- `app-a.yaml` - App A Deployment and HorizontalPodAutoscaler
-- `app-b.yaml` - App B Deployment and HorizontalPodAutoscaler
-- `primary-services.yaml` - Primary-cluster public LoadBalancer Services for App A and App B
+| File | Purpose |
+|--------|---------|
+| `app-a.yaml` | App A Deployment, ConfigMap, Secret, Service, and HorizontalPodAutoscaler |
+| `app-b.yaml` | App B Deployment, Service, and HorizontalPodAutoscaler |
+| `primary-services.yaml` | Primary-cluster public LoadBalancer Services for endpoint validation |
 
-The application and autoscaling manifests are shared by both clusters. Public LoadBalancer Services are intentionally kept separate so they are not accidentally created in the secondary/DR cluster.
+The workload manifests are applied to both clusters.
+
+Public LoadBalancer Services are intentionally maintained in a separate manifest to prevent accidental creation of public endpoints in the secondary cluster.
+
+---
+
+## Cluster Layout
+
+```text
+gke-primary (us-central1)
+├── App A
+├── App B
+├── HPA
+└── Public LoadBalancer Services
+
+gke-secondary (us-east1)
+├── App A
+├── App B
+└── HPA
+```
+
+Both clusters run the same application workloads to maintain deployment symmetry and support regional redundancy.
+
+---
 
 ## Prerequisites
 
-Before applying manifests, verify the active Kubernetes context:
+Verify the active Kubernetes context before running any commands:
 
-```powershell
+```bash
 kubectl config current-context
 ```
 
-You can list all configured contexts with:
+List all available contexts:
 
-```powershell
+```bash
 kubectl config get-contexts
 ```
 
+---
+
 ## Validate Before Applying
 
-Server-side dry-run validation does not persist changes:
+Validate manifests with Kubernetes server-side dry run:
 
-```powershell
+```bash
 kubectl apply --dry-run=server -f app-a.yaml
 kubectl apply --dry-run=server -f app-b.yaml
 ```
 
-For the primary-only services, first select the primary cluster and then validate:
+Validate the primary-only services:
 
-```powershell
+```bash
 gcloud container clusters get-credentials gke-primary --region=us-central1
+
 kubectl config current-context
+
 kubectl apply --dry-run=server -f primary-services.yaml
 ```
+
+---
 
 ## Apply to Primary Cluster
 
 Select the primary cluster:
 
-```powershell
+```bash
 gcloud container clusters get-credentials gke-primary --region=us-central1
+
 kubectl config current-context
 ```
 
-Apply the common workloads and HPAs:
+Deploy the shared workloads:
 
-```powershell
+```bash
 kubectl apply -f app-a.yaml
 kubectl apply -f app-b.yaml
 ```
 
-Apply the primary-cluster public Services:
+Deploy the public-facing services:
 
-```powershell
+```bash
 kubectl apply -f primary-services.yaml
 ```
 
-Verify:
+Verify deployment:
 
-```powershell
+```bash
 kubectl get deployments
 kubectl get pods -o wide
 kubectl get hpa
 kubectl get services
 ```
+
+---
 
 ## Apply to Secondary Cluster
 
 Select the secondary cluster:
 
-```powershell
+```bash
 gcloud container clusters get-credentials gke-secondary --region=us-east1
+
 kubectl config current-context
 ```
 
-Apply only the shared workload and HPA manifests:
+Deploy the shared workloads:
 
-```powershell
+```bash
 kubectl apply -f app-a.yaml
 kubectl apply -f app-b.yaml
 ```
 
-Do **not** apply `primary-services.yaml` to the secondary cluster. This avoids provisioning separate public LoadBalancer Services and external IP addresses in the DR cluster.
+Do **not** apply `primary-services.yaml` to the secondary cluster.
 
-Verify:
+The secondary cluster is intended to host replicated workloads without creating separate public LoadBalancer endpoints.
 
-```powershell
+Verify deployment:
+
+```bash
 kubectl get deployments
 kubectl get pods -o wide
 kubectl get hpa
 kubectl get services
 ```
 
+---
+
 ## Recommended Apply Order
 
-Primary:
+### Primary
 
-```powershell
+```bash
 gcloud container clusters get-credentials gke-primary --region=us-central1
+
 kubectl apply --dry-run=server -f app-a.yaml
 kubectl apply --dry-run=server -f app-b.yaml
 kubectl apply --dry-run=server -f primary-services.yaml
+
 kubectl apply -f app-a.yaml
 kubectl apply -f app-b.yaml
 kubectl apply -f primary-services.yaml
 ```
 
-Secondary:
+### Secondary
 
-```powershell
+```bash
 gcloud container clusters get-credentials gke-secondary --region=us-east1
+
 kubectl apply --dry-run=server -f app-a.yaml
 kubectl apply --dry-run=server -f app-b.yaml
+
 kubectl apply -f app-a.yaml
 kubectl apply -f app-b.yaml
 ```
 
-## Operational Checks
+---
 
-Check rollout status:
+## Operational Verification
 
-```powershell
+### Deployment Health
+
+```bash
 kubectl rollout status deployment/app-a
 kubectl rollout status deployment/app-b
 ```
 
-Check autoscaling:
+### Workload Status
 
-```powershell
+```bash
+kubectl get deployments
+kubectl get pods -o wide
+kubectl get services
+kubectl get endpoints
+```
+
+### Autoscaling
+
+```bash
 kubectl get hpa
+
 kubectl describe hpa app-a
 kubectl describe hpa app-b
 ```
 
-Check application logs:
+### Application Logs
 
-```powershell
+```bash
 kubectl logs deployment/app-a --tail=50
 kubectl logs deployment/app-b --tail=50
 ```
 
-On the primary cluster, find the public endpoints:
+### Public Endpoint Validation
 
-```powershell
+Primary cluster only:
+
+```bash
 kubectl get service app-a-service
 kubectl get service app-b-service
 ```
 
+---
+
+## Multi-Cluster Architecture Note
+
+This directory manages application workloads only.
+
+The broader assessment architecture also includes:
+
+- Multi-Cluster Services (MCS)
+- Multi-Cluster Ingress (MCI)
+- Global load balancing
+- Cross-region failover
+- Health-check-based traffic management
+
+These components are configured separately from the workload manifests contained in this directory.
+
+The public LoadBalancer Services defined in `primary-services.yaml` are retained for direct application endpoint validation required by the assessment.
+
+---
+
 ## Safety Notes
 
-- Always run `kubectl config current-context` before an apply operation.
-- Use `--dry-run=server` before applying changed manifests.
+- Always verify `kubectl config current-context` before applying changes.
+- Use `--dry-run=server` prior to applying modified manifests.
 - Apply `primary-services.yaml` only while connected to `gke-primary`.
-- The secondary cluster receives App A, App B, and their HPAs, but no independent public LoadBalancer Services from these manifests.
-- A production multi-cluster design can place a global traffic-management layer in front of both clusters instead of exposing each cluster independently.
+- Verify rollout status after every deployment.
+- Confirm HPA resources are healthy after deployment.
+- Review resources in both clusters to maintain deployment symmetry.
