@@ -468,29 +468,56 @@ gke-sre-assessment/
 |
 |-- README.md
 |
-|-- terraform/
-|   |-- versions.tf
-|   |-- provider.tf
-|   |-- variables.tf
-|   |-- network.tf
-|   |-- gke.tf
-|   `-- observability.tf
-|
-|-- kubernetes/
-|   |-- README.md
-|   |-- app-a.yaml
-|   |-- app-b.yaml
-|   `-- primary-services.yaml
-|
-|-- queries/
-|   |-- README.md
-|   `-- observability.sql
-|
-`-- docs/
-    |-- architecture.*
-    |-- setup.md
-    |-- design-decisions.md
-    `-- troubleshooting.md
++---docs
+|       architecture.md
+|       Assessment-Instructions.docx
+|       Br Cluster Flow-2026-10-11-175332.png
+|       design-decisions.md
+|       helloworld.png
+|       iam-design.md
+|       multiclusteringress-evidence
+|       nginx.png
+|       README.md
+|       service-mesh-design.md
+|       setup.md
+|       SSL-termination.md
+|       troubleshooting.md
+|       
++---grafana
+|       CPU.png
+|       gke-sre-observability-dashboard.json
+|       grafana.png
+|       grafana_troubleshooting_README.md
+|       Memory.png
+|       
++---kubernetes
+|       app-a-config.yaml
+|       app-a-export.yaml
+|       app-a-secret.yaml
+|       app-a.yaml
+|       app-b-export.yaml
+|       app-b.yaml
+|       multiclusteringress.yaml
+|       multiclusterservice.yaml
+|       primary-services.yaml
+|       README.md
+|       
++---queries
+|       observability.sql
+|       README.md
+|       
++---terraform
+|   .terraform.lock.hcl
+|   gke.tf
+|   iam.tf
+|   network.tf
+|   observability.tf
+|   provider.tf
+|   README.md
+|   terraform.tfstate
+|   terraform.tfstate.backup
+|   variables.tf
+|   versions.tf
 ```
 
 ## Terraform
