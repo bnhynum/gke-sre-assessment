@@ -18,7 +18,7 @@ Primary region:   us-central1
 Secondary region: us-east1
 ```
 
-The implementation uses GKE Standard clusters, VPC-native networking, two stateless applications, Horizontal Pod Autoscaling, Cloud Logging, BigQuery log export, and Terraform.
+The implementation uses GKE Standard clusters, VPC-native networking, two stateless applications, Horizontal Pod Autoscaling, Cloud Logging, BigQuery log export, Grafana dashboarding, Multi-Cluster Services (MCS), Multi-Cluster Ingress (MCI), Workload Identity, IAM role separation, and Terraform-managed infrastructure.
 
 ## 2. Local Tooling
 
@@ -260,7 +260,19 @@ kubectl get pods -o wide
 kubectl get hpa
 ```
 
-## 9. Validate Primary Application Endpoints
+## 9. IAM role separation was implemented for:
+
+- Developers
+- Operations
+- SRE
+- CI/CD
+
+Implementation details and role assignments are documented in:
+
+../docs/iam-design.md
+../terraform/iam.tf
+
+## 10. Validate Primary Application Endpoints
 
 On the primary cluster:
 
@@ -279,7 +291,7 @@ curl http://APP_B_EXTERNAL_IP
 
 The validated assessment implementation returned the NGINX welcome response for App A and the sample `Hello, world!` response for App B.
 
-## 10. Verify Horizontal Pod Autoscaling
+## 11. Verify Horizontal Pod Autoscaling
 
 ```powershell
 kubectl get hpa
@@ -295,7 +307,66 @@ Maximum replicas: 5
 CPU target:       60%
 ```
 
-## 11. Validate Cloud Logging
+After both clusters were deployed and validated, Multi-Cluster Services (MCS) and Multi-Cluster Ingress (MCI) were configured to provide global traffic routing and cross-region failover.
+
+Traffic flow:
+
+```text
+Internet
+    |
+    v
+Global Load Balancer
+    |
+    v
+Multi-Cluster Ingress (MCI)
+    |
+    v
+Multi-Cluster Services (MCS)
+    |
+    +------> gke-primary
+    |
+    +------> gke-secondary
+```
+
+## 12. Multi-Cluster Services and Ingress
+
+After both GKE clusters were deployed and validated, Multi-Cluster Services (MCS) and Multi-Cluster Ingress (MCI) were configured to provide global traffic routing, cross-region service discovery, and health-based failover.
+
+Traffic flow:
+
+```text
+Internet
+    |
+    v
+Global Load Balancer
+    |
+    v
+Multi-Cluster Ingress (MCI)
+    |
+    v
+Multi-Cluster Services (MCS)
+    |
+    +------> gke-primary
+    |
+    +------> gke-secondary
+```
+
+Validated capabilities include:
+
+- Global VIP
+- Cross-region traffic routing
+- Health-based failover
+- Multi-cluster service discovery
+- Cross-region workload access
+
+Additional documentation:
+
+```text
+../docs/multiclusteringress-evidence
+../docs/SSL-termination.md
+```
+
+## 13. Validate Cloud Logging
 
 A workload-log query can be performed using the Google Cloud CLI.
 
@@ -307,7 +378,7 @@ gcloud logging read "resource.type=k8s_container AND resource.labels.cluster_nam
 
 The validated records included GKE metadata such as cluster name, location, namespace, Pod, and container.
 
-## 12. Create the BigQuery Dataset
+## 14. Create the BigQuery Dataset
 
 Verify the BigQuery API:
 
@@ -327,7 +398,7 @@ Verify:
 bq ls
 ```
 
-## 13. Create the Cloud Logging Sink
+## 15. Create the Cloud Logging Sink
 
 Create a project Logging sink for Kubernetes container logs:
 
@@ -351,7 +422,7 @@ bq ls project-19ae3503-8d3c-48b5-9d8:gke_observability
 
 The validated export created daily stderr and stdout tables.
 
-## 14. Run BigQuery Analysis
+## 16. Run BigQuery Analysis
 
 Queries are stored in:
 
@@ -367,7 +438,7 @@ bq query --use_legacy_sql=false "SELECT timestamp, severity, textPayload FROM `p
 
 See `../queries/README.md` for the full query set and interpretation notes.
 
-## 15. Install and Configure Terraform
+## 17. Install and Configure Terraform
 
 Terraform was installed locally and initialized under:
 
@@ -390,7 +461,7 @@ terraform fmt
 terraform validate
 ```
 
-## 16. Import Existing Validated Infrastructure into Terraform
+## 18. Import Existing Validated Infrastructure into Terraform
 
 The infrastructure was created and verified before Terraform state management was introduced. The existing resources were then imported rather than recreated.
 
@@ -412,7 +483,7 @@ Check Terraform state:
 terraform state list
 ```
 
-## 17. Confirm Terraform Drift State
+## 19. Confirm Terraform Drift State
 
 Run:
 
@@ -428,19 +499,40 @@ No changes. Your infrastructure matches the configuration.
 
 This is the expected steady state for the completed assessment resources.
 
-## 18. Grafana Environment Note
+## 20. Grafana Dashboard Validation
 
-No enabled GCP Grafana service was found during implementation, and neither Docker nor a local Grafana server was installed on the assessment workstation. The assessment allows unavailable features to be skipped.
+Grafana was configured and validated using the assessment observability pipeline.
 
-The underlying observability pipeline was still implemented and validated through:
+Observability flow:
 
 ```text
-GKE -> Cloud Logging -> Log Router -> BigQuery
+GKE Workloads
+    |
+    v
+Cloud Logging
+    |
+    v
+BigQuery
+    |
+    v
+Grafana
 ```
 
-Dashboard-ready activity queries are provided under `../queries/`.
+Evidence and dashboard exports are available under:
 
-## 19. Evidence to Capture
+```text
+../grafana/
+```
+
+Dashboard validation includes:
+
+- Application activity analysis
+- Error visibility
+- Request trend analysis
+- Cluster activity reporting
+- BigQuery-backed observability dashboards
+
+## 21. Evidence to Capture
 
 Recommended assessment evidence:
 
@@ -450,15 +542,20 @@ Recommended assessment evidence:
 - HPA status
 - Primary App A endpoint screenshot
 - Primary App B endpoint screenshot
+- Multi-Cluster Ingress evidence
+- Global VIP evidence
 - Cloud Logging query output
 - BigQuery dataset/table listing
 - BigQuery query results
+- Grafana dashboard screenshots
+- IAM architecture documentation
+- SSL termination documentation
 - terraform validate
 - terraform state list
 - final terraform plan showing no changes
 ```
 
-## 20. Troubleshooting Scenarios Encountered
+## 22. Troubleshooting Scenarios Encountered
 
 ### Missing GKE kubectl authentication plugin
 
@@ -476,7 +573,7 @@ A dataset-level IAM binding attempt returned an allowlisting limitation. The ass
 
 The `hello-app` image did not contain `wget`. Kubernetes port forwarding and requests from the workstation were used instead to generate fresh traffic without altering the application container.
 
-## 21. Safety Notes
+## 23. Safety Notes
 
 - Verify the active GCP project before provisioning or changing infrastructure.
 - Verify `kubectl config current-context` before every Kubernetes apply.
