@@ -1,22 +1,91 @@
 # Terraform - GKE SRE Assessment
 
-This directory contains the Terraform configuration for the GCP infrastructure used in the GKE SRE assessment.
+This directory contains the Terraform configuration for the Google Cloud infrastructure used in the GKE SRE Assessment.
 
-The infrastructure was first validated manually, then represented in Terraform and imported into Terraform state. The final `terraform plan` reported no differences between configuration, state, and the live GCP resources.
+The assessment infrastructure was initially validated manually and subsequently imported into Terraform state to provide reproducible Infrastructure as Code (IaC). After configuration reconciliation, the final Terraform plan reported no drift between the configuration, Terraform state, and deployed GCP resources.
 
-## Managed Infrastructure
+---
 
-Terraform manages the following assessment resources:
+## Overview
+
+This Terraform implementation provisions and manages the core infrastructure required for:
+
+- Multi-region GKE deployment
+- Cross-region application hosting
+- VPC-native Kubernetes networking
+- Centralized logging and observability
+- BigQuery-based log analytics
+- Workload Identity integration
+- IAM architecture for operational personas
+- Terraform-managed infrastructure lifecycle
+
+The deployed architecture supports:
+
+```text
+Primary Region   : us-central1
+Secondary Region : us-east1
+
+Infrastructure Components:
+- Custom VPC
+- Regional GKE clusters
+- Alias-IP networking
+- Cloud Logging
+- BigQuery observability
+- IAM architecture
+- Workload Identity
+- Managed Prometheus
+```
+
+---
+
+# Managed Infrastructure
+
+Terraform manages the following assessment resources.
+
+## Networking
 
 - Custom VPC: `sre-assessment-vpc`
-- Primary subnet: `gke-primary-subnet` in `us-central1`
-- Secondary subnet: `gke-secondary-subnet` in `us-east1`
-- Primary GKE cluster: `gke-primary`
-- Secondary GKE cluster: `gke-secondary`
+- Primary subnet: `gke-primary-subnet`
+- Secondary subnet: `gke-secondary-subnet`
+- Primary Pod CIDR allocation
+- Primary Service CIDR allocation
+- Secondary Pod CIDR allocation
+- Secondary Service CIDR allocation
+- Load-balancer subnet reservation
+- Operations / Monitoring subnet reservation
+
+## GKE
+
+- Primary cluster: `gke-primary`
+- Secondary cluster: `gke-secondary`
+- VPC-native networking
+- Workload Identity
+- Cloud Logging integration
+- Cloud Monitoring integration
+- Managed Prometheus
+- Node autoscaling configuration
+
+## Observability
+
 - BigQuery dataset: `gke_observability`
 - Cloud Logging sink: `gke-logs-to-bigquery`
+- Kubernetes container log export configuration
 
-## Files
+## IAM
+
+Terraform also documents and manages the assessment IAM model, including:
+
+- Developer persona access
+- Operations persona access
+- SRE persona access
+- CI/CD persona access
+- Conditional IAM bindings
+- Separation of human identities from automation identities
+- Workload-identity-based authentication strategy
+
+---
+
+# Files
 
 ```text
 terraform/
@@ -26,371 +95,473 @@ terraform/
 |-- variables.tf
 |-- network.tf
 |-- gke.tf
-`-- observability.tf
+|-- observability.tf
+`-- iam.tf
 ```
 
-### `versions.tf`
+---
 
-Defines the Terraform version requirement and the HashiCorp Google provider.
+## versions.tf
 
-### `provider.tf`
+Defines:
 
-Configures the Google provider for the assessment GCP project.
+- Terraform version requirements
+- Google provider requirements
 
-### `variables.tf`
+---
 
-Defines shared configuration values such as:
+## provider.tf
 
-- GCP project ID
+Configures:
+
+- Google Cloud provider
+- Project configuration
+- Authentication source
+
+---
+
+## variables.tf
+
+Defines reusable variables including:
+
+- Project ID
 - Primary region
 - Secondary region
 
-### `network.tf`
+---
 
-Defines:
+## network.tf
 
-- `sre-assessment-vpc`
-- `gke-primary-subnet`
-- `gke-secondary-subnet`
-- Primary and secondary Pod alias-IP ranges
-- Primary and secondary Service alias-IP ranges
+Creates and manages:
 
-### `gke.tf`
+```text
+sre-assessment-vpc
 
-Defines both GKE Standard clusters, including:
+├── gke-primary-subnet
+├── gke-secondary-subnet
+├── lb-subnet
+└── ops-monitoring-subnet
+```
 
-- Regional placement
+Also defines:
+
+- Primary Pod CIDR range
+- Primary Service CIDR range
+- Secondary Pod CIDR range
+- Secondary Service CIDR range
+
+---
+
+## gke.tf
+
+Defines both GKE Standard clusters.
+
+Key configuration includes:
+
+- Regional deployment
 - Explicit node locations
 - Regular release channel
-- VPC-native IP allocation
 - Workload Identity
-- System and workload logging
-- System monitoring
-- `e2-standard-2` node configuration
-- Node autoscaling from 1 to 3 nodes
+- Managed Prometheus
+- Cloud Logging
+- Cloud Monitoring
+- VPC-native networking
+- Alias IP ranges
+- Node autoscaling
+- e2-standard-2 worker nodes
 
-### `observability.tf`
+Cluster configuration:
+
+```text
+Mode:               GKE Standard
+Release Channel:    Regular
+Machine Type:       e2-standard-2
+
+Node Autoscaling:
+  Min Nodes: 1
+  Max Nodes: 3
+
+Logging:
+  System Logs
+  Workload Logs
+
+Monitoring:
+  System Monitoring
+  Managed Prometheus
+
+Security:
+  Workload Identity Enabled
+```
+
+---
+
+## observability.tf
 
 Defines:
 
-- BigQuery dataset `gke_observability`
-- Logging project sink `gke-logs-to-bigquery`
-- Kubernetes container log filter: `resource.type=k8s_container`
+### BigQuery
 
-## Prerequisites
+```text
+Dataset:
+gke_observability
+```
 
-Required local tools:
+### Cloud Logging Sink
+
+```text
+gke-logs-to-bigquery
+```
+
+### Log Export Filter
+
+```text
+resource.type="k8s_container"
+```
+
+This configuration exports Kubernetes container logs into BigQuery for long-term storage and analysis.
+
+---
+
+## iam.tf
+
+Defines the assessment IAM architecture.
+
+Personas include:
+
+| Persona | Responsibility |
+|----------|----------|
+| Developer | Application deployment and troubleshooting |
+| Operations | Platform operations and support |
+| SRE | Reliability, monitoring, logging, observability |
+| CI/CD | Automated deployments |
+
+The IAM model follows:
+
+- Least privilege principles
+- Group-based access
+- Human/automation separation
+- Conditional role assignments
+- Keyless authentication preference
+
+---
+
+# Prerequisites
+
+Install:
 
 ```text
 Terraform
 Google Cloud CLI
 ```
 
-The Google provider uses Application Default Credentials for local authentication.
+Authentication uses Application Default Credentials (ADC).
 
-Authenticate the Google Cloud CLI as needed, then configure ADC:
+Login to Google Cloud:
 
 ```powershell
 gcloud auth login
+```
+
+Configure ADC:
+
+```powershell
 gcloud auth application-default login
 ```
 
-Verify the active project separately before performing infrastructure operations:
+Verify active project:
 
 ```powershell
 gcloud config get-value project
 ```
 
-Expected assessment project:
+Expected project:
 
 ```text
 project-19ae3503-8d3c-48b5-9d8
 ```
 
-## Standard Validation Workflow
+---
 
-From this directory:
+# Standard Validation Workflow
+
+Run from this directory:
 
 ```powershell
 terraform init
+
 terraform fmt
+
 terraform validate
+
 terraform plan
 ```
 
-Expected validation result:
+Expected output:
 
 ```text
 Success! The configuration is valid.
 ```
 
-After the existing resources were imported and reconciled, the final plan returned:
+Desired final state:
 
 ```text
 No changes. Your infrastructure matches the configuration.
 ```
 
-This is the desired steady state.
+---
 
-## Existing Resource Import Workflow
+# Import Workflow
 
-These commands document how the already-created assessment resources were brought under Terraform management.
+The assessment environment was created before Terraform management was introduced.
 
-### VPC
+Resources were imported into state and reconciled.
+
+## VPC
 
 ```powershell
 terraform import google_compute_network.sre_vpc projects/project-19ae3503-8d3c-48b5-9d8/global/networks/sre-assessment-vpc
 ```
 
-### Primary subnet
+## Primary Subnet
 
 ```powershell
 terraform import google_compute_subnetwork.primary projects/project-19ae3503-8d3c-48b5-9d8/regions/us-central1/subnetworks/gke-primary-subnet
 ```
 
-### Secondary subnet
+## Secondary Subnet
 
 ```powershell
 terraform import google_compute_subnetwork.secondary projects/project-19ae3503-8d3c-48b5-9d8/regions/us-east1/subnetworks/gke-secondary-subnet
 ```
 
-### Primary GKE cluster
+## Primary GKE Cluster
 
 ```powershell
 terraform import google_container_cluster.primary projects/project-19ae3503-8d3c-48b5-9d8/locations/us-central1/clusters/gke-primary
 ```
 
-### Secondary GKE cluster
+## Secondary GKE Cluster
 
 ```powershell
 terraform import google_container_cluster.secondary projects/project-19ae3503-8d3c-48b5-9d8/locations/us-east1/clusters/gke-secondary
 ```
 
-### BigQuery dataset
+## BigQuery Dataset
 
 ```powershell
 terraform import google_bigquery_dataset.gke_observability projects/project-19ae3503-8d3c-48b5-9d8/datasets/gke_observability
 ```
 
-### Logging sink
+## Logging Sink
 
 ```powershell
 terraform import google_logging_project_sink.gke_logs_to_bigquery projects/project-19ae3503-8d3c-48b5-9d8/sinks/gke-logs-to-bigquery
 ```
 
-## Inspecting Terraform State
+---
 
-List resources managed in state:
-
-```powershell
-terraform state list
-```
-
-Expected resources include:
-
-```text
-google_bigquery_dataset.gke_observability
-google_compute_network.sre_vpc
-google_compute_subnetwork.primary
-google_compute_subnetwork.secondary
-google_container_cluster.primary
-google_container_cluster.secondary
-google_logging_project_sink.gke_logs_to_bigquery
-```
-
-## Network Addressing
+# Network Addressing
 
 | Cluster | Region | Node CIDR | Pod CIDR | Service CIDR |
-|---|---|---|---|---|
-| Primary | `us-central1` | `10.10.0.0/20` | `10.20.0.0/16` | `10.30.0.0/20` |
-| Secondary | `us-east1` | `10.40.0.0/20` | `10.50.0.0/16` | `10.60.0.0/20` |
+|----------|----------|----------|----------|----------|
+| Primary | us-central1 | 10.10.0.0/20 | 10.20.0.0/16 | 10.30.0.0/20 |
+| Secondary | us-east1 | 10.40.0.0/20 | 10.50.0.0/16 | 10.60.0.0/20 |
 
-## Cluster Configuration
+Both clusters use GKE VPC-native alias IP networking.
 
-Both clusters follow the same basic operational pattern:
+---
+
+# Cluster Placement
 
 ```text
-Mode:             GKE Standard
-Release channel:  Regular
-Machine type:     e2-standard-2
-Node autoscaling: min 1 / max 3
-Workload Identity enabled
-VPC-native networking enabled
-Cloud Logging enabled for system/workload logs
-Cloud Monitoring enabled for system components
+gke-primary
+└── us-central1-a
+
+gke-secondary
+└── us-east1-b
 ```
 
-Assessment node locations:
+The assessment uses single-zone worker-node placement to keep infrastructure costs and complexity manageable.
+
+Production deployments would typically distribute worker nodes across multiple zones within each region.
+
+---
+
+# Observability Architecture
+
+Terraform manages the infrastructure supporting the following logging path:
 
 ```text
-gke-primary   -> us-central1-a
-gke-secondary -> us-east1-b
-```
-
-The single-zone node placement keeps the assessment implementation small. A production regional design can distribute worker nodes across multiple zones for stronger intra-region availability.
-
-## Observability Infrastructure
-
-The Terraform-managed logging path is:
-
-```text
-GKE workloads
-    |
-    v
+Applications
+     |
+     v
+GKE Workloads
+     |
+     v
 Cloud Logging
-    |
-    v
+     |
+     v
 gke-logs-to-bigquery
-    |
-    v
-BigQuery dataset: gke_observability
+     |
+     v
+BigQuery Dataset
+(gke_observability)
+     |
+     v
+Grafana / SQL Analysis
 ```
 
-The sink filter is:
+The export was validated through:
 
-```text
-resource.type=k8s_container
-```
+- BigQuery table creation
+- Successful log ingestion
+- BigQuery query execution
+- Grafana dashboard integration
 
-The BigQuery export was validated by the creation of log tables and successful SQL queries against exported GKE container records.
+---
 
-## Applying Changes Safely
+# Authentication Troubleshooting
 
-Always inspect the plan first:
+An implementation issue encountered during the assessment involved Application Default Credentials.
 
-```powershell
-terraform plan
-```
-
-Do not run `terraform apply` merely because Terraform is installed or initialized.
-
-Only run an apply when:
-
-1. The planned change is intentional.
-2. The correct GCP project has been verified.
-3. No unexpected resource replacement or destruction is present.
-4. The impact of the change has been reviewed.
-
-If the plan contains an unexpected replacement such as:
-
-```text
--/+ destroy and then create replacement
-```
-
-stop and reconcile the configuration rather than applying it.
-
-For the completed assessment configuration, the desired plan is:
-
-```text
-No changes. Your infrastructure matches the configuration.
-```
-
-## Authentication Troubleshooting
-
-An important distinction encountered during implementation was the difference between normal gcloud authentication and Application Default Credentials.
-
-Normal CLI authentication:
+CLI authentication:
 
 ```powershell
 gcloud auth login
 ```
 
-Terraform Google provider local authentication:
+Terraform authentication:
 
 ```powershell
 gcloud auth application-default login
 ```
 
-The Terraform import initially failed because ADC had not yet been configured. After ADC was established, Terraform successfully imported the existing resources.
+Terraform imports initially failed because ADC had not been configured. Once ADC was established, imports completed successfully and Terraform state was reconciled.
 
-Do not commit credential files, access tokens, or other secrets to the repository.
+Never commit:
 
-## BigQuery / Logging IAM Note
+- Access tokens
+- Credential files
+- Service account secrets
+- Terraform state backups containing secrets
 
-During implementation, an attempted dataset-level IAM binding using the `bq` CLI returned:
+---
+
+# BigQuery Logging IAM Note
+
+During implementation, a dataset-level IAM assignment attempt returned:
 
 ```text
 This feature requires allowlisting.
 ```
 
-A project-level IAM binding was used for the Cloud Logging sink writer identity in the assessment environment. After permission was available, the Logging sink successfully exported GKE container logs into the BigQuery dataset.
+The assessment environment successfully used project-level permissions for the Cloud Logging sink writer identity.
 
-For a production environment, use the narrowest IAM scope supported by the environment and organizational policy.
+After permissions were assigned:
 
-## What Terraform Does Not Manage Here
+- Logging export succeeded
+- BigQuery tables were created
+- Container logs were successfully ingested
 
-The application workloads are kept separately as Kubernetes manifests under:
+---
+
+# What Terraform Does Not Manage
+
+Application deployment is managed separately:
 
 ```text
 ../kubernetes/
 ```
 
-That separation keeps responsibilities clear:
+Responsibility separation:
 
 ```text
 Terraform
-  -> GCP infrastructure
+  -> Infrastructure
+  -> Networking
+  -> GKE
+  -> IAM
+  -> Observability
 
 Kubernetes YAML
-  -> application Deployments
-  -> HPAs
+  -> Deployments
   -> Services
+  -> ConfigMaps
+  -> Secrets
+  -> HPAs
 ```
 
-BigQuery analysis queries are stored separately under:
+Observability queries are stored separately:
 
 ```text
 ../queries/
 ```
 
-## Useful Verification Commands
+---
 
-Check GKE clusters:
+# Useful Verification Commands
+
+## GKE
 
 ```powershell
 gcloud container clusters list
 ```
 
-Check VPC/subnets:
+## Networking
 
 ```powershell
 gcloud compute networks list
+
 gcloud compute networks subnets list
 ```
 
-Check BigQuery dataset:
+## BigQuery
 
 ```powershell
 bq ls
+
 bq ls project-19ae3503-8d3c-48b5-9d8:gke_observability
 ```
 
-Check Logging sink:
+## Logging Sink
 
 ```powershell
 gcloud logging sinks describe gke-logs-to-bigquery
 ```
 
-Check Terraform drift:
+## Terraform Drift
 
 ```powershell
 terraform plan
 ```
 
-## Assessment Evidence
+---
 
-Useful Terraform evidence for the final submission includes:
+# Assessment Evidence
 
-- `terraform validate` showing valid configuration
-- `terraform state list` showing managed infrastructure
-- final `terraform plan` showing no changes
-- Terraform source files in this directory
-- documentation of the ADC authentication issue and resolution
+Useful Terraform evidence includes:
 
-## Operator Safety
+- `terraform validate`
+- `terraform state list`
+- Final `terraform plan`
+- Infrastructure source code
+- Resource import documentation
+- ADC troubleshooting documentation
+- IAM architecture implementation
+- Workload Identity configuration
 
-- Verify the GCP project before every infrastructure operation.
-- Review `terraform plan` before every apply.
-- Never commit Terraform credentials or access tokens.
-- Treat Terraform state as potentially sensitive infrastructure metadata.
-- Avoid manual changes to Terraform-managed resources unless the resulting drift will be intentionally reconciled.
+---
+
+# Operator Safety
+
+- Verify the active GCP project before every Terraform operation.
+- Review every plan before applying changes.
+- Never apply unreviewed replacement operations.
+- Do not store credentials in the repository.
+- Treat Terraform state as sensitive infrastructure metadata.
+- Reconcile infrastructure drift intentionally.
+- Expected steady state is:
+
+```text
+No changes. Your infrastructure matches the configuration.
+```
